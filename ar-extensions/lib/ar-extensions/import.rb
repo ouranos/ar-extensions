@@ -220,7 +220,22 @@ class ActiveRecord::Base
       return_obj.num_inserts = 0 if return_obj.num_inserts.nil?
       return_obj
     end
-    
+
+    # Imports a collection of values to the database.
+    #
+    # With import! validations always run. If any of them fail ActiveRecord::RecordInvalid gets raised
+    #
+    def import!( *args )
+      options = { :validate=>true }
+      options = args.pop.merge(options) if args.last.is_a? Hash
+      args << options
+      return_obj = import(*args)
+      unless return_obj.failed_instances.blank?
+        raise ActiveRecord::RecordInvalid.new(return_obj.failed_instances.first)
+      end
+      return_obj
+    end
+
     # TODO import_from_table needs to be implemented. 
     def import_from_table( options ) # :nodoc:
     end
