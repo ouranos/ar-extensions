@@ -285,13 +285,17 @@ class ActiveRecord::Base
         columns_sql = "(" + escaped_column_names.join( ',' ) + ")"
         insert_statements, values = [], []
         number_inserted = 0
+        # connection gets called a *lot* in this high intensity loop.
+        # Reuse the same one w/in the loop, otherwise it would keep being re-retreived (= lots of time for large imports)
+        connection_memo = connection
         array_of_attributes.each do |arr|
           my_values = []
           arr.each_with_index do |val,j|
-            if !sequence_name.blank? && column_names[j] == primary_key && val.nil?
-               my_values << connection.next_value_for_sequence(sequence_name)
+            # be sure to query sequence_name *last*, only if cheaper tests fail, because it's costly
+            if val.nil? && column_names[j] == primary_key && !sequence_name.blank?
+               my_values << connection_memo.next_value_for_sequence(sequence_name)
             else
-               my_values << connection.quote( val, columns[j] )
+               my_values << connection_memo.quote( val, columns[j] )
             end
           end
           insert_statements << "INSERT INTO #{quoted_table_name} #{columns_sql} VALUES(" + my_values.join( ',' ) + ")"
